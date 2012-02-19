@@ -631,4 +631,6 @@
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Zvuky pri dotyku na číselnú klávesnicu"</string>
     <string name="dial_pad_autocomplete" msgid="494525952035761075">"Automatické dokonč. číselnej klávesnice"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Tón zvonenia a vibrovanie"</string>
+    <string name="perm_change_mobile_network">Zmeniť sieť (2G/3G)</string>
+    <string name="perm_change_mobile_network_desc">Aplikácia s týmito povoleniami môže kedykoľvek zmeniť sieť medzi 2G a 3G. 3G je rýchlejšie, viac využíva batériu, a taktiež Vás môže stáť viac peňazí.</string>
 </resources>

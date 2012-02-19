@@ -631,4 +631,6 @@
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Tárcsázó érintési hangjai"</string>
     <string name="dial_pad_autocomplete" msgid="494525952035761075">"Tárcsázó automatikus kiegészítés"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Csengőhang és rezgés"</string>
+    <string name="perm_change_mobile_network">Hálózat módosítása (2G/3G)</string>
+    <string name="perm_change_mobile_network_desc">Az ilyen engedéllyel rendelkező alkalmazás, bármikor válthat 2G és 3G közt. A 3G gyorsabb, jobban meríti az akkumulátort, és több pénzbe is kerülhet a nagyobb adatforgalom miatt.</string>
 </resources>

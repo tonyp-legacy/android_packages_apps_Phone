@@ -635,4 +635,6 @@
     <string name="dtmf_tone_enable_title" msgid="827601042915852989">"Toni tastierino numerico"</string>
     <string name="dial_pad_autocomplete" msgid="494525952035761075">"Completam. autom. tastierino numerico"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Suoneria e vibrazione"</string>
+    <string name="perm_change_mobile_network">Cambia rete (2G/3G)</string>
+    <string name="perm_change_mobile_network_desc">Un\'applicazione con questo permesso può passare da 2G a 3G e viceversa in qualsiasi momento. Il 3G è più veloce, consuma più batteria e può anche farti spendere di più.</string>
 </resources>
