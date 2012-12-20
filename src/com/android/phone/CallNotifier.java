@@ -164,7 +164,7 @@ public class CallNotifier extends Handler
     private PhoneGlobals mApplication;
     private CallManager mCM;
     private Ringer mRinger;
-    private BluetoothHeadset mBluetoothHeadset;
+    private BluetoothHandsfree mBluetoothHandsfree;
     private CallLogAsync mCallLog;
     private boolean mSilentRingerRequested;
 
@@ -243,9 +243,10 @@ public class CallNotifier extends Handler
         mRinger = ringer;
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter != null) {
-            adapter.getProfileProxy(mApplication.getApplicationContext(),
+            /*adapter.getProfileProxy(mApplication.getApplicationContext(),
                                     mBluetoothProfileServiceListener,
                                     BluetoothProfile.HEADSET);
+ TODO dirty hack to compile */
         }
 
         TelephonyManager telephonyManager = (TelephonyManager)app.getSystemService(
@@ -1377,8 +1378,8 @@ public class CallNotifier extends Handler
     private void resetAudioStateAfterDisconnect() {
         if (VDBG) log("resetAudioStateAfterDisconnect()...");
 
-        if (mBluetoothHeadset != null) {
-            mBluetoothHeadset.disconnectAudio();
+        if (mBluetoothHandsfree != null) {
+            mBluetoothHandsfree.audioOff();
         }
 
         // call turnOnSpeaker() with state=false and store=true even if speaker
@@ -1622,8 +1623,8 @@ public class CallNotifier extends Handler
             ToneGenerator toneGenerator;
             try {
                 int stream;
-                if (mBluetoothHeadset != null) {
-                    stream = mBluetoothHeadset.isAudioOn() ? AudioManager.STREAM_BLUETOOTH_SCO:
+                if (mBluetoothHandsfree != null) {
+                    stream = mBluetoothHandsfree.isAudioOn() ? AudioManager.STREAM_BLUETOOTH_SCO:
                         AudioManager.STREAM_VOICE_CALL;
                 } else {
                     stream = AudioManager.STREAM_VOICE_CALL;
@@ -2088,18 +2089,6 @@ public class CallNotifier extends Handler
             mCurrentEmergencyToneState = EMERGENCY_TONE_OFF;
         }
     }
-
-     private BluetoothProfile.ServiceListener mBluetoothProfileServiceListener =
-        new BluetoothProfile.ServiceListener() {
-        public void onServiceConnected(int profile, BluetoothProfile proxy) {
-            mBluetoothHeadset = (BluetoothHeadset) proxy;
-            if (VDBG) log("- Got BluetoothHeadset: " + mBluetoothHeadset);
-        }
-
-        public void onServiceDisconnected(int profile) {
-            mBluetoothHeadset = null;
-        }
-    };
 
     private void onRingbackTone(AsyncResult r) {
         boolean playTone = (Boolean)(r.result);

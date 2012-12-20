@@ -23,7 +23,6 @@ import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.IBluetoothHeadsetPhone;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -167,7 +166,8 @@ public class PhoneGlobals extends ContextWrapper
     CallNotifier notifier;
     NotificationMgr notificationMgr;
     Ringer ringer;
-    IBluetoothHeadsetPhone mBluetoothPhone;
+    /*IBluetoothHeadsetPhone mBluetoothPhone;*/
+    BluetoothHandsfree mBtHandsfree;
     PhoneInterfaceManager phoneMgr;
     CallManager mCM;
     int mBluetoothHeadsetState = BluetoothProfile.STATE_DISCONNECTED;
@@ -473,12 +473,16 @@ public class PhoneGlobals extends ContextWrapper
             if (BluetoothAdapter.getDefaultAdapter() != null) {
                 // Start BluetoothPhoneService even if device is not voice capable.
                 // The device can still support VOIP.
-                startService(new Intent(this, BluetoothPhoneService.class));
+                /*startService(new Intent(this, BluetoothPhoneService.class));
                 bindService(new Intent(this, BluetoothPhoneService.class),
                             mBluetoothPhoneConnection, 0);
+		 TODO */
+		    mBtHandsfree = BluetoothHandsfree.init(this, mCM);
+		    startService(new Intent(this, BluetoothHeadsetService.class));
+
             } else {
                 // Device is not bluetooth capable
-                mBluetoothPhone = null;
+                mBtHandsfree = null;
             }
 
             ringer = Ringer.init(this);
@@ -677,9 +681,13 @@ public class PhoneGlobals extends ContextWrapper
         return ringer;
     }
 
-    IBluetoothHeadsetPhone getBluetoothPhoneService() {
-        return mBluetoothPhone;
+    BluetoothHandsfree getBluetoothHandsfree() {
+        return mBtHandsfree;
     }
+
+    /*IBluetoothHeadsetPhone getBluetoothPhoneService() {
+        return mBluetoothPhone;
+    }*/
 
     boolean isBluetoothHeadsetAudioOn() {
         return (mBluetoothHeadsetAudioState != BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
@@ -1309,13 +1317,17 @@ public class PhoneGlobals extends ContextWrapper
 
         ringer.updateRingerContextAfterRadioTechnologyChange(this.phone);
         notifier.updateCallNotifierRegistrationsAfterRadioTechnologyChange();
-        if (mBluetoothPhone != null) {
+        /*if (mBluetoothPhone != null) {
             try {
                 mBluetoothPhone.updateBtHandsfreeAfterRadioTechnologyChange();
             } catch (RemoteException e) {
                 Log.e(LOG_TAG, Log.getStackTraceString(new Throwable()));
             }
+        }*/
+        if (mBtHandsfree != null) {
+            mBtHandsfree.updateBtHandsfreeAfterRadioTechnologyChange();
         }
+
         if (mInCallScreen != null) {
             mInCallScreen.updateAfterRadioTechnologyChange();
         }
@@ -1833,18 +1845,19 @@ public class PhoneGlobals extends ContextWrapper
     }
 
     /** Service connection */
-    private final ServiceConnection mBluetoothPhoneConnection = new ServiceConnection() {
+
+    //private final ServiceConnection mBluetoothPhoneConnection = new ServiceConnection() {
 
         /** Handle the task of binding the local object to the service */
-        public void onServiceConnected(ComponentName className, IBinder service) {
+      /*  public void onServiceConnected(ComponentName className, IBinder service) {
             Log.i(LOG_TAG, "Headset phone created, binding local service.");
             mBluetoothPhone = IBluetoothHeadsetPhone.Stub.asInterface(service);
-        }
+        }*/
 
         /** Handle the task of cleaning up the local binding */
-        public void onServiceDisconnected(ComponentName className) {
+       /* public void onServiceDisconnected(ComponentName className) {
             Log.i(LOG_TAG, "Headset phone disconnected, cleaning local binding.");
             mBluetoothPhone = null;
         }
-    };
+    };*/
 }

@@ -25,7 +25,6 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
-import android.bluetooth.IBluetoothHeadsetPhone;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -288,6 +287,7 @@ public class InCallScreen extends Activity
     // based on the current foreground Call.)
     private Phone mPhone;
 
+    private BluetoothHandsfree mBluetoothHandsfree;
     private BluetoothHeadset mBluetoothHeadset;
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mBluetoothConnectionPending;
@@ -574,8 +574,14 @@ public class InCallScreen extends Activity
         mCM =  mApp.mCM;
         log("- onCreate: phone state = " + mCM.getState());
 
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (mBluetoothAdapter != null) {
+        mBluetoothHandsfree = mApp.getBluetoothHandsfree();
+        if (VDBG) log("- mBluetoothHandsfree: " + mBluetoothHandsfree);
+
+        if (mBluetoothHandsfree != null) {
+            // The PhoneApp only creates a BluetoothHandsfree instance in the
+            // first place if BluetoothAdapter.getDefaultAdapter()
+            // succeeds.  So at this point we know the device is BT-capable.
+            mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
             mBluetoothAdapter.getProfileProxy(getApplicationContext(), mBluetoothProfileServiceListener,
                                     BluetoothProfile.HEADSET);
         }
@@ -3809,17 +3815,13 @@ public class InCallScreen extends Activity
         // multiple background calls, for now, always act on the first background calll.
         PhoneUtils.switchHoldingAndActive(mCM.getFirstActiveBgCall());
 
-        // If we have a valid BluetoothPhoneService then since CDMA network or
+        // If we have a valid BluetoothHandsfree then since CDMA network or
         // Telephony FW does not send us information on which caller got swapped
-        // we need to update the second call active state in BluetoothPhoneService internally
+        // we need to update the second call active state in BluetoothHandsfree internally
         if (mCM.getBgPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA) {
-            IBluetoothHeadsetPhone btPhone = mApp.getBluetoothPhoneService();
-            if (btPhone != null) {
-                try {
-                    btPhone.cdmaSwapSecondCallState();
-                } catch (RemoteException e) {
-                    Log.e(LOG_TAG, Log.getStackTraceString(new Throwable()));
-                }
+            BluetoothHandsfree bthf = mApp.getBluetoothHandsfree();
+            if (bthf != null) {
+                bthf.cdmaSwapSecondCallState();
             }
         }
 
@@ -4230,6 +4232,13 @@ public class InCallScreen extends Activity
     //   headset (which we don't do from the Phone UI!) but also lets you
     //   get the address of the currently active headset and see whether
     //   it's currently connected.
+    //
+    // - BluetoothHandsfree is the API to control the audio connection to
+    //   a bluetooth headset. We use this API to switch the headset on and
+    //   off when the user presses the "Bluetooth" button.
+    //   Our BluetoothHandsfree instance (mBluetoothHandsfree) is created
+    //   by the PhoneApp and will be null if the device is not BT capable.
+    //
 
     /**
      * @return true if the Bluetooth on/off switch in the UI should be
@@ -4238,6 +4247,11 @@ public class InCallScreen extends Activity
      */
     /* package */ boolean isBluetoothAvailable() {
         if (VDBG) log("isBluetoothAvailable()...");
+        if (mBluetoothHandsfree == null) {
+            // Device is not BT capable.
+            if (VDBG) log("  ==> FALSE (not BT capable)");
+            return false;
+        }
 
         // There's no need to ask the Bluetooth system service if BT is enabled:
         //
@@ -4274,20 +4288,14 @@ public class InCallScreen extends Activity
     }
 
     /**
-     * @return true if a BT Headset is available, and its audio is currently connected.
+     * @return true if a BT device is available, and its audio is currently connected.
      */
     /* package */ boolean isBluetoothAudioConnected() {
-        if (mBluetoothHeadset == null) {
-            if (VDBG) log("isBluetoothAudioConnected: ==> FALSE (null mBluetoothHeadset)");
+        if (mBluetoothHandsfree == null) {
+            if (VDBG) log("isBluetoothAudioConnected: ==> FALSE (null mBluetoothHandsfree)");
             return false;
         }
-        List<BluetoothDevice> deviceList = mBluetoothHeadset.getConnectedDevices();
-
-        if (deviceList.isEmpty()) {
-            return false;
-        }
-        BluetoothDevice device = deviceList.get(0);
-        boolean isAudioOn = mBluetoothHeadset.isAudioConnected(device);
+        boolean isAudioOn = mBluetoothHandsfree.isAudioOn();
         if (VDBG) log("isBluetoothAudioConnected: ==> isAudioOn = " + isAudioOn);
         return isAudioOn;
     }
@@ -4297,7 +4305,7 @@ public class InCallScreen extends Activity
      * see InCallControlState.bluetoothIndicatorOn.
      *
      * @return true if a BT device is available and its audio is currently connected,
-     *              <b>or</b> if we issued a BluetoothHeadset.connectAudio()
+     *              <b>or</b> if we issued a BluetoothHandsfree.userWantsAudioOn()
      *              call within the last 5 seconds (which presumably means
      *              that the BT audio connection is currently being set
      *              up, and will be connected soon.)
@@ -4351,7 +4359,8 @@ public class InCallScreen extends Activity
         log("= PhoneApp.showBluetoothIndication: "
             + mApp.showBluetoothIndication());
         log("=");
-        if (mBluetoothAdapter != null) {
+        if (mBluetoothHandsfree != null) {
+            log("= BluetoothHandsfree.isAudioOn: " + mBluetoothHandsfree.isAudioOn());
             if (mBluetoothHeadset != null) {
                 List<BluetoothDevice> deviceList = mBluetoothHeadset.getConnectedDevices();
 
@@ -4367,19 +4376,18 @@ public class InCallScreen extends Activity
                 log("= mBluetoothHeadset is null");
             }
         } else {
-            log("= mBluetoothAdapter is null; device is not BT capable");
+            log("= mBluetoothHandsfree is null; device is not BT capable");
         }
     }
 
     /* package */ void connectBluetoothAudio() {
         if (VDBG) log("connectBluetoothAudio()...");
-        if (mBluetoothHeadset != null) {
-            // TODO(BT) check return
-            mBluetoothHeadset.connectAudio();
+        if (mBluetoothHandsfree != null) {
+            mBluetoothHandsfree.userWantsAudioOn();
         }
 
         // Watch out: The bluetooth connection doesn't happen instantly;
-        // the connectAudio() call returns instantly but does its real
+        // the userWantsAudioOn() call returns instantly but does its real
         // work in another thread.  The mBluetoothConnectionPending flag
         // is just a little trickery to ensure that the onscreen UI updates
         // instantly. (See isBluetoothAudioConnectedOrPending() above.)
@@ -4389,8 +4397,8 @@ public class InCallScreen extends Activity
 
     /* package */ void disconnectBluetoothAudio() {
         if (VDBG) log("disconnectBluetoothAudio()...");
-        if (mBluetoothHeadset != null) {
-            mBluetoothHeadset.disconnectAudio();
+        if (mBluetoothHandsfree != null) {
+            mBluetoothHandsfree.userWantsAudioOff();
         }
         mBluetoothConnectionPending = false;
     }
