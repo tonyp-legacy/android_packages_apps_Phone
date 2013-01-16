@@ -312,8 +312,8 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         }
         mPhone.setPreferredNetworkType(network,
                 mMainThreadHandler.obtainMessage(CMD_TOGGLE_2G));
-        Settings.Secure.putInt(mApp.getContentResolver(),
-                Settings.Secure.PREFERRED_NETWORK_MODE, network);
+        android.provider.Settings.Secure.putInt(mApp.getContentResolver(),
+                android.provider.Settings.Secure.PREFERRED_NETWORK_MODE, network);
     }
 
     private boolean showCallScreenInternal(boolean specifyInitialDialpadState,
