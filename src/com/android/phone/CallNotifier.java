@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 The Android Open Source Project
+ * Blacklist - Copyright (C) 2013 The CyanogenMod Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +21,7 @@ import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.CallerInfo;
 import com.android.internal.telephony.CallerInfoAsyncQuery;
+import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
@@ -30,15 +32,17 @@ import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaDisplayInf
 import com.android.internal.telephony.cdma.CdmaInformationRecords.CdmaSignalInfoRec;
 import com.android.internal.telephony.cdma.SignalToneUtil;
 import com.android.internal.telephony.gsm.SuppServiceNotification;
-import com.android.internal.telephony.CallManager;
-import com.android.phone.CallFeaturesSetting;
 
 import android.app.ActivityManagerNative;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.content.Intent;
+import android.content.res.Resources;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
@@ -196,6 +200,9 @@ public class CallNotifier extends Handler
     // Cached system services
     private AudioManager mAudioManager;
     private Vibrator mVibrator;
+
+    // Blacklist handling
+    private static final String BLACKLIST = "Blacklist";
 
     /**
      * Initialize the singleton CallNotifier instance.
@@ -454,6 +461,29 @@ public class CallNotifier extends Handler
             // event.  There's nothing we can do here, so just bail out
             // without doing anything.  (But presumably we'll log it in
             // the call log when the disconnect event comes in...)
+            return;
+        }
+
+        // Blacklist handling
+        String number = c.getAddress();
+        if (TextUtils.isEmpty(number)) {
+            number = Blacklist.PRIVATE_NUMBER;
+        }
+        if (DBG) log("Incoming number is: " + number);
+        // See if the number is in the blacklist
+        // Result is one of: MATCH_NONE, MATCH_LIST or MATCH_REGEX
+        int listType = mApplication.blackList.isListed(number);
+        if (listType != Blacklist.MATCH_NONE) {
+            // We have a match, set the user and hang up the call and notify
+            if (DBG) log("Incoming call from " + number + " blocked.");
+            c.setUserData(BLACKLIST);
+            try {
+                c.hangup();
+                mApplication.notificationMgr.notifyBlacklistedCall(number,
+                        c.getCreateTime(), listType);
+            } catch (CallStateException e) {
+                e.printStackTrace();
+            }
             return;
         }
 
@@ -1115,6 +1145,12 @@ public class CallNotifier extends Handler
         }
 
         if (c != null) {
+            Object o = c.getUserData();
+            if (BLACKLIST.equals(o)) {
+                if (VDBG) Log.i(LOG_TAG, "in blacklist so skip calllog");
+                return;
+            }
+
             boolean vibHangup = PhoneUtils.PhoneSettings.vibHangup(mApplication);
             if (vibHangup && c.getDurationMillis() > 0) {
                 vibrate(50, 100, 50);
@@ -1249,8 +1285,14 @@ public class CallNotifier extends Handler
             // Set the "type" to be displayed in the call log (see constants in CallLog.Calls)
             final int callLogType;
             if (c.isIncoming()) {
-                callLogType = (cause == Connection.DisconnectCause.INCOMING_MISSED ?
-                               Calls.MISSED_TYPE : Calls.INCOMING_TYPE);
+                if (cause == Connection.DisconnectCause.INCOMING_MISSED) {
+                    callLogType = Calls.MISSED_TYPE;
+                } else if (cause == Connection.DisconnectCause.INCOMING_REJECTED
+                        && PhoneUtils.PhoneSettings.markRejectedCallsAsMissed(mApplication)) {
+                    callLogType = Calls.MISSED_TYPE;
+                } else {
+                    callLogType = Calls.INCOMING_TYPE;
+                }
             } else {
                 callLogType = Calls.OUTGOING_TYPE;
             }

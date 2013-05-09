@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 The Android Open Source Project
+ * Blacklist - Copyright (C) 2013 The CyanogenMod Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,14 +46,12 @@ import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceManager;
 import android.preference.PreferenceScreen;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.MediaStore;
 import android.provider.Settings;
-import android.provider.Settings.SettingNotFoundException;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.Log;
@@ -185,6 +184,8 @@ public class CallFeaturesSetting extends PreferenceActivity
     private static final String BUTTON_GSM_UMTS_OPTIONS = "button_gsm_more_expand_key";
     private static final String BUTTON_CDMA_OPTIONS = "button_cdma_more_expand_key";
 
+    static final String BUTTON_VOICE_QUALITY_KEY = "button_voice_quality_key";
+
     private static final String VM_NUMBERS_SHARED_PREFERENCES_NAME = "vm_numbers";
 
     private static final String BUTTON_SIP_CALL_OPTIONS =
@@ -253,6 +254,9 @@ public class CallFeaturesSetting extends PreferenceActivity
     private static final String VOICEMAIL_VIBRATION_ALWAYS = "always";
     private static final String VOICEMAIL_VIBRATION_NEVER = "never";
 
+    // Blacklist support
+    private static final String BUTTON_BLACKLIST = "button_blacklist";
+
     private EditPhoneNumberPreference mSubMenuVoicemailSettings;
 
     private Runnable mRingtoneLookupRunnable;
@@ -282,11 +286,13 @@ public class CallFeaturesSetting extends PreferenceActivity
     private ListPreference mButtonSipCallOptions;
     private CheckBoxPreference mMwiNotification;
     private ListPreference mVoicemailProviders;
+    private ListPreference mButtonVoiceQuality;
     private PreferenceScreen mVoicemailSettings;
     private Preference mVoicemailNotificationRingtone;
     private CheckBoxPreference mVoicemailNotificationVibrate;
     private SipSharedPreferences mSipSharedPreferences;
     private ListPreference mFlipAction;
+    private PreferenceScreen mButtonBlacklist;
 
     private class VoiceMailProvider {
         public VoiceMailProvider(String name, Intent intent) {
@@ -617,6 +623,8 @@ public class CallFeaturesSetting extends PreferenceActivity
             handleSipCallOptionsChange(objValue);
         } else if (preference == mFlipAction) {
             updateFlipActionSummary((String) objValue);
+        } else if (preference == mButtonVoiceQuality) {
+            updateVoiceQualitySummary((String) objValue);
         }
         // always let the preference setting proceed.
         return true;
@@ -628,6 +636,20 @@ public class CallFeaturesSetting extends PreferenceActivity
             String[] summaries = getResources().getStringArray(R.array.flip_action_summary_entries);
             mFlipAction.setSummary(getString(R.string.flip_action_summary, summaries[i]));
         }
+    }
+
+    private void updateVoiceQualitySummary(String value) {
+        String[] entries = getResources().getStringArray(R.array.voice_quality_entries);
+        String[] values = getResources().getStringArray(R.array.voice_quality_values);
+        String summary = null;
+
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(value)) {
+                summary = getString(R.string.voice_quality_summary, entries[i]);
+                break;
+            }
+        }
+        mButtonVoiceQuality.setSummary(summary);
     }
 
     @Override
@@ -847,7 +869,9 @@ public class CallFeaturesSetting extends PreferenceActivity
                 if (DBG) log("onActivityResult: bad contact data, no results found.");
                 return;
             }
+
             mSubMenuVoicemailSettings.onPickActivityResult(cursor.getString(0));
+            cursor.close();
             return;
         }
 
@@ -1564,6 +1588,8 @@ public class CallFeaturesSetting extends PreferenceActivity
         mButtonNoiseSuppression = (CheckBoxPreference) findPreference(BUTTON_NOISE_SUPPRESSION_KEY);
         mVoicemailProviders = (ListPreference) findPreference(BUTTON_VOICEMAIL_PROVIDER_KEY);
         mFlipAction = (ListPreference) findPreference(FLIP_ACTION_KEY);
+        mButtonVoiceQuality = (ListPreference) findPreference(BUTTON_VOICE_QUALITY_KEY);
+
         if (mVoicemailProviders != null) {
             mVoicemailProviders.setOnPreferenceChangeListener(this);
             mVoicemailSettings = (PreferenceScreen)findPreference(BUTTON_VOICEMAIL_SETTING_KEY);
@@ -1662,6 +1688,14 @@ public class CallFeaturesSetting extends PreferenceActivity
             }
         }
 
+        if (TextUtils.isEmpty(getResources().getString(R.string.voice_quality_param))) {
+            prefSet.removePreference(mButtonVoiceQuality);
+            mButtonVoiceQuality = null;
+        }
+        if (mButtonVoiceQuality != null) {
+            mButtonVoiceQuality.setOnPreferenceChangeListener(this);
+        }
+
         // create intent to bring up contact list
         mContactListIntent = new Intent(Intent.ACTION_GET_CONTENT);
         mContactListIntent.setType(android.provider.Contacts.Phones.CONTENT_ITEM_TYPE);
@@ -1703,6 +1737,9 @@ public class CallFeaturesSetting extends PreferenceActivity
                 }
             }
         };
+
+        // Blacklist screen - Needed for setting summary
+        mButtonBlacklist = (PreferenceScreen) prefSet.findPreference(BUTTON_BLACKLIST);
 
         ActionBar actionBar = getActionBar();
         if (actionBar != null) {
@@ -1857,6 +1894,10 @@ public class CallFeaturesSetting extends PreferenceActivity
             updateFlipActionSummary(mFlipAction.getValue());
         }
 
+        if (mButtonVoiceQuality != null) {
+            updateVoiceQualitySummary(mButtonVoiceQuality.getValue());
+        }
+
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(
                 mPhone.getContext());
         if (migrateVoicemailVibrationSettingsIfNeeded(prefs)) {
@@ -1865,6 +1906,17 @@ public class CallFeaturesSetting extends PreferenceActivity
         }
 
         lookupRingtoneName();
+        updateBlacklistSummary();
+    }
+
+    private void updateBlacklistSummary() {
+        if (mButtonBlacklist != null) {
+            if (PhoneUtils.PhoneSettings.isBlacklistEnabled(this)) {
+                mButtonBlacklist.setSummary(R.string.blacklist_summary);
+            } else {
+                mButtonBlacklist.setSummary(R.string.blacklist_summary_disabled);
+            }
+        }
     }
 
     // Migrate settings from BUTTON_VOICEMAIL_NOTIFICATION_VIBRATE_WHEN_KEY to

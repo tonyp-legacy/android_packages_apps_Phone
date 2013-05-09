@@ -52,25 +52,45 @@
             android:key="button_vibrate_outgoing"
             android:title="@string/vibrate_outgoing"
             android:persistent="true" />
+
         <CheckBoxPreference
             android:key="button_vibrate_call_waiting"
             android:title="@string/vibrate_call_waiting"
             android:persistent="true" />
+
         <CheckBoxPreference
             android:key="button_vibrate_hangup"
             android:title="@string/vibrate_hangup"
             android:persistent="true" />
+
         <CheckBoxPreference
             android:key="button_vibrate_45"
             android:title="@string/vibrate_45"
             android:persistent="true"
             android:summary="@string/vibrate_45_sum" />
+
         <CheckBoxPreference
             android:key="button_calllog_after_call"
             android:title="@string/calllog_after_call"
             android:summary="@string/calllog_after_call_summary"
             android:persistent="true"
             android:defaultValue="false" />
+
+        <PreferenceScreen
+            android:key="button_blacklist"
+            android:title="@string/blacklist_title"
+            android:persistent="false">
+            <intent android:action="android.intent.action.MAIN"
+                android:targetPackage="com.android.phone"
+                android:targetClass="com.android.phone.BlacklistSetting" />
+        </PreferenceScreen>
+
+        <CheckBoxPreference
+            android:key="button_rejected_as_missed"
+            android:title="@string/rejected_as_missed"
+            android:persistent="true"
+            android:summary="@string/rejected_as_missed_sum" />
+
     </PreferenceCategory>
 
   <PreferenceCategory
@@ -185,6 +205,13 @@
         android:summary="@string/dtmf_tones_summary"
         android:entries="@array/dtmf_tone_entries"
         android:entryValues="@array/dtmf_tone_values"/>
+
+    <ListPreference
+        android:key="button_voice_quality_key"
+        android:title="@string/voice_quality_preferences_title"
+        android:dialogTitle="@string/voice_quality_preferences_title"
+        android:entries="@array/voice_quality_entries"
+        android:entryValues="@array/voice_quality_values"/>
 
     <CheckBoxPreference
         android:key="button_noise_suppression_key"
