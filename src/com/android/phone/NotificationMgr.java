@@ -606,8 +606,6 @@ public class NotificationMgr implements CallerInfoAsyncQuery.OnQueryCompleteList
              builder.setSmallIcon(android.R.drawable.stat_notify_missed_call)
                 .setTicker(mContext.getString(R.string.notification_missedCallTicker, callName))
                 .setWhen(date)
-                .setContentTitle(mContext.getText(titleResId))
-                .setContentText(expandedText)
                 .setContentIntent(PendingIntent.getActivity(mContext, 0, callLogIntent, 0))
                 .setAutoCancel(true)
                 .setDeleteIntent(createClearMissedCallsIntent());
