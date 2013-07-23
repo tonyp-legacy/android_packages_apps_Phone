@@ -261,7 +261,6 @@ public class PhoneGlobals extends ContextWrapper
     private int mPreferredTtyMode = Phone.TTY_MODE_OFF;
 
     // For adding to Blacklist from call log
-    private static final String INSERT_BLACKLIST = "com.android.phone.INSERT_BLACKLIST";
     private static final String REMOVE_BLACKLIST = "com.android.phone.REMOVE_BLACKLIST";
     private static final String EXTRA_NUMBER = "number";
     private static final String EXTRA_FROM_NOTIFICATION = "fromNotification";
@@ -576,11 +575,12 @@ public class PhoneGlobals extends ContextWrapper
             intentFilter.addAction(TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED);
             intentFilter.addAction(TelephonyIntents.ACTION_SERVICE_STATE_CHANGED);
             intentFilter.addAction(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED);
+            intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
+            intentFilter.addAction(Intent.ACTION_SCREEN_ON);
             if (mTtyEnabled) {
                 intentFilter.addAction(TtyIntent.TTY_PREFERRED_MODE_CHANGE_ACTION);
             }
             intentFilter.addAction(AudioManager.RINGER_MODE_CHANGED_ACTION);
-            intentFilter.addAction(INSERT_BLACKLIST);
             intentFilter.addAction(REMOVE_BLACKLIST);
             registerReceiver(mReceiver, intentFilter);
 
@@ -1547,14 +1547,25 @@ public class PhoneGlobals extends ContextWrapper
                 if (ringerMode == AudioManager.RINGER_MODE_SILENT) {
                     notifier.silenceRinger();
                 }
-            } else if (action.equals(INSERT_BLACKLIST)) {
-                blackList.add(intent.getStringExtra(EXTRA_NUMBER));
+            } else if (action.equals(Intent.ACTION_SCREEN_OFF) ||
+                action.equals(Intent.ACTION_SCREEN_ON)) {
+                if (VDBG) Log.d(LOG_TAG, "mReceiver: ACTION_SCREEN_OFF" +
+                        " / ACTION_SCREEN_ON");
+                /*
+                 * Disable Acclerometer Listener while in-call and the screen is off.
+                 * This is done to ensure that power consumption is kept to a minimum
+                 * in such a scenario
+                 */
+                if(mAccelerometerListener != null) {
+                    mAccelerometerListener.enable(mLastPhoneState == PhoneConstants.State.OFFHOOK
+                            && action.equals(Intent.ACTION_SCREEN_ON));
+                }
             } else if (action.equals(REMOVE_BLACKLIST)) {
                 if (intent.getBooleanExtra(EXTRA_FROM_NOTIFICATION, false)) {
                     // Dismiss the notification that brought us here
                     notificationMgr.cancelBlacklistedCallNotification();
+                    blackList.delete(intent.getStringExtra(EXTRA_NUMBER));
                 }
-                blackList.delete(intent.getStringExtra(EXTRA_NUMBER));
             }
         }
     }
