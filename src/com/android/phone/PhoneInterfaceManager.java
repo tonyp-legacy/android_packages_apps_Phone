@@ -881,4 +881,9 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     public int getLteOnCdmaMode() {
         return mPhone.getLteOnCdmaMode();
     }
+
+    //TODO implment me 
+    public int  getLteOnGsmMode() { 
+        return 0;
+    }
 }
